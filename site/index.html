@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>動物園英文</title>
+  <meta name="description" content="給 4～5 歲小孩的英文單字遊戲：聽英文，點出正確的動物。">
+  <meta name="theme-color" content="#7cc96b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="動物園英文">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="./css/style.css">
+  <script src="./js/version.js"></script>
+</head>
+<body>
+  <main id="app">
+
+    <!-- 開始：解鎖聲音 -->
+    <section id="screen-start" class="screen active" aria-label="開始">
+      <div class="parade" aria-hidden="true">🦁 🐘 🦒 🐒 🦓</div>
+      <h1 class="title">動物園英文</h1>
+      <button id="btnStart" class="big-btn play" aria-label="開始玩">▶</button>
+      <p class="adult-note">家長：建議用平板橫放，並「加到主畫面」全螢幕使用。<br>點按鈕後會開始出聲。</p>
+      <p id="loadError" class="adult-note error" hidden></p>
+    </section>
+
+    <!-- 首頁 -->
+    <section id="screen-home" class="screen" aria-label="首頁">
+      <button id="btnUpdate" class="update-banner" hidden>有新版本，點這裡更新</button>
+      <button id="btnParent" class="corner-btn" aria-label="家長">⚙️</button>
+      <div class="home-buttons">
+        <button id="btnPlay" class="big-btn play" aria-label="玩一回合">▶</button>
+        <button id="btnBook" class="big-btn book" aria-label="貼紙本">📒</button>
+      </div>
+      <div id="homeStickers" class="home-stickers" aria-hidden="true"></div>
+    </section>
+
+    <!-- 遊戲 -->
+    <section id="screen-game" class="screen" aria-label="遊戲">
+      <header class="game-bar">
+        <button id="btnQuit" class="icon-btn" aria-label="回首頁">🏠</button>
+        <div id="dots" class="dots" aria-hidden="true"></div>
+        <button id="btnReplay" class="icon-btn replay" aria-label="再聽一次">🔊</button>
+      </header>
+      <div id="options" class="options"></div>
+    </section>
+
+    <!-- 貼紙獎勵 -->
+    <section id="screen-reward" class="screen" aria-label="得到貼紙">
+      <div class="confetti" aria-hidden="true">✨ 🎉 ✨</div>
+      <div id="rewardSticker" class="reward-sticker"></div>
+      <p id="rewardWord" class="reward-word"></p>
+      <div class="home-buttons">
+        <button id="btnAgain" class="big-btn play small" aria-label="再玩一次">▶</button>
+        <button id="btnRewardHome" class="big-btn home small" aria-label="回首頁">🏠</button>
+      </div>
+    </section>
+
+    <!-- 貼紙本 -->
+    <section id="screen-book" class="screen" aria-label="貼紙本">
+      <header class="game-bar">
+        <button id="btnBookBack" class="icon-btn" aria-label="回首頁">🏠</button>
+        <h2 class="book-title">動物園</h2>
+        <span class="icon-btn ghost"></span>
+      </header>
+      <div id="bookGrid" class="book-grid"></div>
+    </section>
+
+    <!-- 休息 -->
+    <section id="screen-rest" class="screen" aria-label="休息一下">
+      <div class="rest-moon" aria-hidden="true">🌙</div>
+      <p class="rest-text">今天玩夠囉，休息一下！</p>
+      <p class="adult-note">家長可以在 ⚙️ 家長頁延長今天的時間。</p>
+      <div class="home-buttons">
+        <button id="btnRestHome" class="big-btn home small" aria-label="回首頁">🏠</button>
+      </div>
+    </section>
+
+    <!-- 家長鎖 -->
+    <section id="screen-gate" class="screen" aria-label="家長確認">
+      <div class="gate">
+        <p class="gate-title">家長確認</p>
+        <p id="gateQuestion" class="gate-question"></p>
+        <div id="gateAnswers" class="gate-answers"></div>
+        <button id="btnGateCancel" class="text-btn">取消</button>
+      </div>
+    </section>
+
+    <!-- 家長頁 -->
+    <section id="screen-parent" class="screen scroll" aria-label="家長頁">
+      <div class="parent">
+        <div class="parent-head">
+          <h2>家長頁</h2>
+          <button id="btnParentBack" class="text-btn">回首頁</button>
+        </div>
+        <p id="voiceWarn" class="warn" hidden></p>
+        <p id="todayPlay"></p>
+
+        <h3>設定</h3>
+        <div class="settings">
+          <label>每天遊玩上限
+            <select id="setLimit">
+              <option value="10">10 分鐘</option>
+              <option value="15">15 分鐘</option>
+              <option value="20">20 分鐘</option>
+              <option value="30">30 分鐘</option>
+              <option value="0">不限</option>
+            </select>
+          </label>
+          <label>語速
+            <select id="setSpeed">
+              <option value="slow">慢</option>
+              <option value="normal">一般</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" id="setWords"> 圖卡下顯示英文字</label>
+          <button id="btnExtra" class="text-btn">今天再多玩 10 分鐘</button>
+        </div>
+
+        <h3>學習狀況</h3>
+        <p class="hint">星星＝熟練度（0～5）。答錯的字下一回合會優先出現。目前每題 <span id="curChoices"></span> 個選項。</p>
+        <div class="table-wrap"><table id="progressTable"></table></div>
+
+        <h3>進度</h3>
+        <p class="hint">進度只存在這台裝置。換平板或清除瀏覽資料前，先匯出備份。</p>
+        <div class="settings">
+          <button id="btnExport" class="text-btn">匯出進度</button>
+          <label class="text-btn file">匯入進度<input type="file" id="fileImport" accept=".json,application/json" hidden></label>
+          <button id="btnReset" class="text-btn danger">全部重設</button>
+        </div>
+        <p id="parentMsg" class="hint"></p>
+        <p class="hint">版本 <span id="appVersion"></span>　·　不收集任何資料、沒有廣告、不連到其他網站。</p>
+      </div>
+    </section>
+
+  </main>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

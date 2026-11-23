@@ -1,0 +1,16 @@
+{
+  "name": "動物園英文",
+  "short_name": "動物園英文",
+  "description": "給 4～5 歲小孩的英文單字遊戲：聽英文，點出正確的動物。",
+  "lang": "zh-Hant",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#bfe6ff",
+  "theme_color": "#7cc96b",
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
