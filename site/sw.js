@@ -22,6 +22,16 @@ const FILES = [
   "./icons/apple-touch-icon.png",
 ];
 
+async function photoFiles() {
+  // 照片清單取自 credits.json（tools/pick_images.py build 產生）
+  try {
+    const res = await fetch("./content/credits.json", { cache: "no-store" });
+    return Object.keys(await res.json()).map((id) => `./content/images/${id}.webp`);
+  } catch (e) {
+    return [];
+  }
+}
+
 async function audioFiles() {
   // 音檔清單由 tools/make_audio.py 產生；全部預先快取，斷網也有聲音（約 2 MB）
   try {
@@ -38,10 +48,10 @@ self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
     await cache.addAll(FILES);
-    const audio = await audioFiles();
-    // 音檔分批加，個別失敗不影響安裝（播放時會退回瀏覽器語音）
-    for (let i = 0; i < audio.length; i += 40) {
-      await Promise.all(audio.slice(i, i + 40).map((u) => cache.add(u).catch(() => {})));
+    const media = [...await audioFiles(), ...await photoFiles(), "./content/credits.json"];
+    // 音檔與照片分批加，個別失敗不影響安裝（播放時會退回瀏覽器語音、照片之後用到再抓）
+    for (let i = 0; i < media.length; i += 40) {
+      await Promise.all(media.slice(i, i + 40).map((u) => cache.add(u).catch(() => {})));
     }
   })());
 });

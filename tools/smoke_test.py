@@ -121,7 +121,11 @@ async def main():
 
             # 一回合（第一個單元）：點錯、氣球題、句子題
             await js("document.querySelector('#unitGrid .unit').click()")
-            await asyncio.sleep(1.0)
+            for _ in range(25):                      # 會先載入這個單元的照片（最多 2 秒）
+                await asyncio.sleep(0.2)
+                if await active() == "screen-game":
+                    break
+            await asyncio.sleep(0.5)
             check(await active() == "screen-game", "點單元 → 開始一回合")
             await shot("3_game_ipad.png", 1024, 768)
             await shot("3_game_phone.png", 390, 844)
@@ -183,10 +187,26 @@ async def main():
                 s.importJson(backup); return [after, s.store().stickers.length]; })()""")
             check(restored == [0, 1], f"匯出 → 重設 → 匯入，貼紙恢復（{restored}）")
 
+            # 照片：家長頁來源清單、所有照片都抓得到並解得出來
+            await js("document.getElementById('btnCredits').click()")
+            await asyncio.sleep(1.0)
+            credit_rows = await js("document.querySelectorAll('#creditsList > div').length")
+            check(credit_rows >= 120, f"家長頁列出每張圖的作者與授權（{credit_rows} 張）")
+            broken = await js("""(async () => { const c = await (await fetch('./content/credits.json')).json();
+                const bad = [];
+                await Promise.all(Object.keys(c).map(id => new Promise(res => { const im = new Image();
+                  im.onload = () => { if (!im.naturalWidth) bad.push(id); res(); }; im.onerror = () => { bad.push(id); res(); };
+                  im.src = './content/images/' + id + '.webp'; })));
+                return bad; })()""")
+            check(broken == [], f"所有照片都能顯示{'：壞掉 ' + ', '.join(broken[:8]) if broken else ''}")
+            await shot("6_parent_credits_ipad.png", 1024, 768)
+
             cached = await js("""(async () => { await navigator.serviceWorker.ready; await new Promise(r => setTimeout(r, 3000));
                 const c = await caches.open('kids-learning-' + self.APP_VERSION);
-                return (await c.keys()).filter(r => r.url.includes('/audio/en/')).length; })()""")
-            check(cached and cached > 250, f"音檔已預先快取，斷網也有聲音（{cached} 個）")
+                const keys = await c.keys();
+                return [keys.filter(r => r.url.includes('/audio/en/')).length, keys.filter(r => r.url.includes('/content/images/')).length]; })()""")
+            check(cached and cached[0] > 250, f"音檔已預先快取，斷網也有聲音（{cached and cached[0]} 個）")
+            check(cached and cached[1] >= 120, f"照片已預先快取，斷網也看得到（{cached and cached[1]} 張）")
             sw = await js("navigator.serviceWorker.getRegistration().then(r => !!r)")
             check(sw, "service worker 有註冊（可離線）")
             external = [u for u in requests if not u.startswith(ORIGIN) and not u.startswith("data:")

@@ -107,7 +107,6 @@
           <h2>家長頁</h2>
           <button id="btnParentBack" class="text-btn">回地圖</button>
         </div>
-        <p id="voiceWarn" class="warn" hidden></p>
         <p id="todayPlay"></p>
 
         <h3>設定</h3>
@@ -147,7 +146,12 @@
           <button id="btnReset" class="text-btn danger">全部重設</button>
         </div>
         <p id="parentMsg" class="hint"></p>
-        <p class="hint">版本 <span id="appVersion"></span>　·　英文語音：Kokoro-82M（Apache-2.0）　·　不收集任何資料、沒有廣告、不連到其他網站。</p>
+
+        <h3>圖片與聲音來源</h3>
+        <p class="hint">照片來自 Openverse 上以 CC0、公有領域、CC BY、CC BY-SA 授權的作品（裁切為正方形並縮小）；3D 插圖來自 Microsoft Fluent Emoji（<a href="./content/licenses/fluentui-emoji-MIT.txt" target="_blank" rel="noopener">MIT 授權</a>）；英文語音由 Kokoro-82M（Apache-2.0）產生。</p>
+        <button id="btnCredits" class="text-btn">顯示每張照片的作者與授權</button>
+        <div id="creditsList" class="credits" hidden></div>
+        <p class="hint">版本 <span id="appVersion"></span>　·　不收集任何資料、沒有廣告；除了上面的來源連結，不連到其他網站。</p>
       </div>
     </section>
 

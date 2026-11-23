@@ -33,7 +33,10 @@ SPEED = {"word": 0.85, "sentence": 0.9, "phrase": 1.0}
 PHRASES = {
     "praise_1": "Great job!", "praise_2": "Good job!", "praise_3": "Yay!",
     "praise_4": "Well done!", "praise_5": "You got it!", "praise_6": "Awesome!",
-    "sticker": "You got a sticker!", "again": "Let's listen again.", "lets_play": "Let's play!",
+    "sticker": "You got a sticker!", "again": "Oops! Let's listen again.", "lets_play": "Let's play!",
+    "pick_place": "Hi! Where do you want to go?",
+    "listen_touch": "Listen, and touch the picture!",
+    "rest": "Time for a break. See you tomorrow!",
 }
 
 
@@ -49,7 +52,7 @@ def jobs():
         if it.get("sentence"):
             out[it["id"] + "_s"] = (it["sentence"], "sentence")
     for u in read_csv("units.csv"):
-        out["u_" + u["id"]] = (u["英文"], "phrase")
+        out["u_" + u["id"]] = (u.get("say") or u["英文"], "phrase")
     for k, v in PHRASES.items():
         out[k] = (v, "phrase")
     return out

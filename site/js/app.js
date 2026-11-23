@@ -1,5 +1,5 @@
 // 畫面切換與互動。規格：docs/10_共用遊戲規格.md、20_科目_英文單字.md、30_單元與詞彙.md、40_安全與家長.md
-import { loadContent, renderPicture, pictureText } from "./content.js";
+import { loadContent, renderPicture } from "./content.js";
 import {
   store, save, addPlaySeconds, playedMinutesToday, limitReached, addExtraMinutes,
   exportJson, importJson, resetAll, today,
@@ -8,7 +8,7 @@ import {
   buildRound, optionsFor, recordAnswer, finishRound, mastery, unitStars, recommendedUnit, questionKind, ROUND_SIZE,
 } from "./engine.js";
 import {
-  say, playEn, preload, stopSpeech, unlock, setSlow, hasVoice, chimeRight, chimeSoft, chimePop, chimeReward,
+  playEn, preload, stopSpeech, unlock, setSlow, chimeRight, chimeSoft, chimePop, chimeReward,
 } from "./speech.js";
 import { mascotSvg } from "./mascot.js";
 
@@ -32,7 +32,6 @@ function show(name) {
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const showWordsNow = () => store().settings.showWords;
-const zhOrEn = (zh, enClip, enText) => (hasVoice("zh") ? say(zh, "zh") : playEn(enClip, enText));
 
 function setMascot(el, mood = "happy") { el.innerHTML = mascotSvg(mood); }
 
@@ -80,13 +79,16 @@ function goMap() {
     tile.setAttribute("aria-label", `${u.華語} ${u.英文}`);
     tile.innerHTML = `<span class="unit-icon">${u.icon}</span><span class="unit-name">${u.華語}</span>` +
       `<span class="unit-stars">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</span>`;
+    // 有照片的單元：用第一個字的照片當圖示（顏色、數字單元沒有照片，保留 emoji）
+    const cover = u.items.find((it) => it.image.startsWith("img:"));
+    if (cover) renderPicture(cover, tile.querySelector(".unit-icon"));
     tile.addEventListener("click", () => startUnit(u, tile));
     grid.appendChild(tile);
   }
   setMascot($("mapMascot"));
   if (!mapGreeted) {
     mapGreeted = true;
-    zhOrEn("點一個你喜歡的地方", "lets_play", "Let's play!");
+    playEn("pick_place", "Hi! Where do you want to go?");
   }
 }
 
@@ -94,11 +96,20 @@ async function startUnit(u, tile) {
   unlock();
   if (limitReached()) return goRest();
   tile.classList.add("chosen");
-  preload(u.items.flatMap((it) => [it.id, it.id + "_s"]).concat(PRAISE, ["sticker", "again"]));
+  preload(u.items.flatMap((it) => [it.id, it.id + "_s"]).concat(PRAISE, ["sticker", "again", "listen_touch"]));
   stopSpeech();
-  if (hasVoice("zh")) await say(u.華語, "zh");
-  await playEn("u_" + u.id, u.英文);
+  // 念開場句的同時先載入這個單元的照片（最多等 2 秒），第一題才不會先空白
+  await Promise.all([playEn("u_" + u.id, u.say || u.英文), preloadImages(u.items, 2000)]);
   startRound(u);
+}
+
+function preloadImages(items, timeoutMs) {
+  const loads = items.filter((it) => it.image.startsWith("img:")).map((it) => new Promise((resolve) => {
+    const im = new Image();
+    im.onload = im.onerror = resolve;
+    im.src = `./content/images/${it.image.slice(4)}`;
+  }));
+  return Promise.race([Promise.all(loads), wait(timeoutMs)]);
 }
 
 // ---------------------------------------------------------------- 一回合
@@ -159,7 +170,7 @@ async function nextQuestion(first = false) {
     card.addEventListener("click", () => onPick(card, it));
     box.appendChild(card);
   });
-  if (first) await speak(() => zhOrEn("聽聽看，哪一個是", "lets_play", "Let's play!"));
+  if (first) await speak(() => playEn("listen_touch", "Listen, and touch the picture!"));
   if (round && round.target === target) speakTarget();
 }
 
@@ -202,7 +213,7 @@ async function onPick(card, it) {
     card.classList.add("wrong");
     chimeSoft();
     stopSpeech();
-    await speak(() => zhOrEn("再聽一次喔", "again", "Let's listen again."));
+    await speak(() => playEn("again", "Oops! Let's listen again."));
     if (round && round.target === target && current === "game") speakTarget();
   }
 }
@@ -262,7 +273,7 @@ function goBook(unitId) {
 // ---------------------------------------------------------------- 休息
 function goRest() {
   show("rest");
-  say("今天玩夠囉，休息一下，讓眼睛看看遠方", "zh");
+  playEn("rest", "Time for a break. See you tomorrow!");
 }
 
 // ---------------------------------------------------------------- 家長鎖
@@ -296,8 +307,6 @@ function goParent() {
   const extra = store().extraMin[today()] || 0;
   $("todayPlay").textContent = `今天已玩 ${playedMinutesToday()} 分鐘` +
     (lim ? `（上限 ${lim} 分鐘${extra ? `，今天另加 ${extra} 分鐘` : ""}）` : "（不限時間）");
-  $("voiceWarn").hidden = hasVoice("zh");
-  $("voiceWarn").textContent = "這台裝置找不到華語語音，華語提示會改用英文。";
   const sum = $("unitSummary");
   sum.innerHTML = "";
   for (const u of content.units) {
@@ -314,6 +323,43 @@ function goParent() {
   renderProgress();
 }
 
+const LICENSE_NAME = { cc0: "CC0", pdm: "公有領域", by: "CC BY", "by-sa": "CC BY-SA", mit: "MIT" };
+
+async function toggleCredits() {
+  const box = $("creditsList");
+  if (!box.hidden) { box.hidden = true; return; }
+  box.hidden = false;
+  box.textContent = "讀取中…";
+  try {
+    const credits = await (await fetch("./content/credits.json")).json();
+    box.textContent = "";
+    for (const it of content.items) {
+      const c = credits[it.id];
+      if (!c) continue;
+      const row = document.createElement("div");
+      const lic = `${LICENSE_NAME[c.license] || c.license}${c.license_version && c.license !== "pdm" && c.license !== "cc0" ? " " + c.license_version : ""}`;
+      row.append(`${it.英文}（${it.華語}）：「${c.title || "無標題"}」 作者 ${c.creator}，${lic}，${c.modified}　`);
+      const a = document.createElement("a");
+      a.href = c.source_url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = "原始來源";
+      row.appendChild(a);
+      if (c.license_url) {
+        const l = document.createElement("a");
+        l.href = c.license_url;
+        l.target = "_blank";
+        l.rel = "noopener noreferrer";
+        l.textContent = "授權條款";
+        row.append("　", l);
+      }
+      box.appendChild(row);
+    }
+  } catch (e) {
+    box.textContent = `讀不到來源清單：${e.message}`;
+  }
+}
+
 function renderProgress() {
   const unit = content.units.find((u) => u.id === $("progressUnit").value) || content.units[0];
   const t = $("progressTable");
@@ -322,7 +368,9 @@ function renderProgress() {
   for (const it of [...unit.items].sort((a, b) => a.level - b.level || a.order - b.order)) {
     const m = mastery(it);
     const tr = body.insertRow();
-    tr.insertCell().textContent = pictureText(it);
+    const picCell = tr.insertCell();
+    picCell.className = "thumb";
+    renderPicture(it, picCell);
     const en = tr.insertCell();
     const b = document.createElement("button");
     b.className = "link-btn";
@@ -347,6 +395,7 @@ function bindParent() {
   });
   $("setWords").addEventListener("change", () => { store().settings.showWords = $("setWords").checked; save(); });
   $("progressUnit").addEventListener("change", renderProgress);
+  $("btnCredits").addEventListener("click", toggleCredits);
   $("btnExtra").addEventListener("click", () => { addExtraMinutes(10); goParent(); msg("今天多了 10 分鐘。"); });
   $("btnExport").addEventListener("click", () => {
     const blob = new Blob([exportJson()], { type: "application/json" });
@@ -429,7 +478,7 @@ async function init() {
     $("btnStart").disabled = true;
     return;
   }
-  preload(["lets_play", "again", ...PRAISE]);
+  preload(["pick_place", "listen_touch", "again", ...PRAISE]);
   $("btnStart").addEventListener("click", () => {
     unlock();
     hop($("startMascot"));

@@ -1,14 +1,14 @@
-id,order,icon,華語,英文,color
-zoo,1,🦁,動物園,Zoo,#ffb74d
-farm,2,🐮,農場,Farm,#aed581
-fruit,3,🍎,水果,Fruit,#ef9a9a
-color,4,🎨,顏色,Colors,#ce93d8
-number,5,⭐,數字,Numbers,#fff176
-body,6,👃,身體,My Body,#ffccbc
-food,7,🍞,食物,Food,#ffe0b2
-vehicle,8,🚗,交通工具,Vehicles,#90caf9
-sea,9,🐳,海洋,Sea,#80deea
-toy,10,🧸,玩具,Toys,#f8bbd0
-clothes,11,👕,衣服,Clothes,#b39ddb
-nature,12,🌈,大自然,Nature,#a5d6a7
-home,13,🏠,家裡,Home,#bcaaa4
+id,order,icon,華語,英文,color,say
+zoo,1,🦁,動物園,Zoo,#ffb74d,Let's go to the zoo!
+farm,2,🐮,農場,Farm,#aed581,Let's go to the farm!
+fruit,3,🍎,水果,Fruit,#ef9a9a,Let's find some fruit!
+color,4,🎨,顏色,Colors,#ce93d8,Let's learn colors!
+number,5,⭐,數字,Numbers,#fff176,Let's count!
+body,6,👃,身體,My Body,#ffccbc,Let's learn about our body!
+food,7,🍞,食物,Food,#ffe0b2,Yummy! Let's find some food!
+vehicle,8,🚗,交通工具,Vehicles,#90caf9,Beep beep! Let's go!
+sea,9,🐳,海洋,Sea,#80deea,Let's go to the sea!
+toy,10,🧸,玩具,Toys,#f8bbd0,Let's play with toys!
+clothes,11,👕,衣服,Clothes,#b39ddb,Let's get dressed!
+nature,12,🌈,大自然,Nature,#a5d6a7,Let's go outside!
+home,13,🏠,家裡,Home,#bcaaa4,Let's look around the house!

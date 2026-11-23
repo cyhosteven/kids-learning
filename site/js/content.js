@@ -47,11 +47,13 @@ export async function loadContent() {
 export function renderPicture(item, el) {
   el.textContent = "";
   const [kind, value = ""] = item.image.split(/:(.*)/s);
+  el.classList.toggle("photo", kind === "img");
   if (kind === "img") {
     const img = document.createElement("img");
     img.src = `./content/images/${value}`;
     img.alt = "";
     img.draggable = false;
+    img.decoding = "async";
     el.appendChild(img);
   } else if (kind === "color") {
     const blob = document.createElement("span");
