@@ -1,43 +1,117 @@
-// 畫面切換與互動。規格：docs/10_共用遊戲規格.md、20_科目_英文單字.md、40_安全與家長.md
-import { loadItems, renderPicture } from "./content.js";
+// 畫面切換與互動。規格：docs/10_共用遊戲規格.md、20_科目_英文單字.md、30_單元與詞彙.md、40_安全與家長.md
+import { loadContent, renderPicture, pictureText } from "./content.js";
 import {
   store, save, addPlaySeconds, playedMinutesToday, limitReached, addExtraMinutes,
   exportJson, importJson, resetAll, today,
 } from "./storage.js";
-import { buildRound, optionsFor, recordAnswer, finishRound, mastery, ROUND_SIZE } from "./engine.js";
-import { say, stopSpeech, unlock, setSlow, hasVoice, chimeRight, chimeSoft, chimeReward } from "./speech.js";
+import {
+  buildRound, optionsFor, recordAnswer, finishRound, mastery, unitStars, recommendedUnit, questionKind, ROUND_SIZE,
+} from "./engine.js";
+import {
+  say, playEn, preload, stopSpeech, unlock, setSlow, hasVoice, chimeRight, chimeSoft, chimePop, chimeReward,
+} from "./speech.js";
+import { mascotSvg } from "./mascot.js";
 
-const THEME = "zoo";
-const PRAISE = ["Great job!", "Good job!", "Yay!", "Well done!", "You got it!"];
+const PRAISE = ["praise_1", "praise_2", "praise_3", "praise_4", "praise_5", "praise_6"];
+const PRAISE_TEXT = ["Great job!", "Good job!", "Yay!", "Well done!", "You got it!", "Awesome!"];
+const BALLOON_COLORS = ["#ff6f61", "#4fc3f7", "#ffd54f", "#81c784", "#ba68c8"];
 const $ = (id) => document.getElementById(id);
 
-let items = [];
-let round = null;      // { questions, index, wrongs, firstTry, target, busy }
+let content = { units: [], items: [] };
+let round = null;      // { unit, questions, kinds, index, wrongs, firstTry, target, busy }
 let current = "start";
+let bookUnit = null;
+let mapGreeted = false;
 
-// ---------------------------------------------------------------- 畫面
+// ---------------------------------------------------------------- 共用
 function show(name) {
   stopSpeech();
   current = name;
   for (const s of document.querySelectorAll(".screen")) s.classList.toggle("active", s.id === `screen-${name}`);
 }
 
-function showWordsNow() {
-  return store().settings.showWords || !hasVoice("en");
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const showWordsNow = () => store().settings.showWords;
+const zhOrEn = (zh, enClip, enText) => (hasVoice("zh") ? say(zh, "zh") : playEn(enClip, enText));
+
+function setMascot(el, mood = "happy") { el.innerHTML = mascotSvg(mood); }
+
+function hop(el) {
+  el.classList.remove("hop");
+  void el.offsetWidth;
+  el.classList.add("hop");
 }
 
-// ---------------------------------------------------------------- 首頁
-function goHome() {
-  show("home");
-  const got = store().stickers.map((id) => items.find((it) => it.id === id)).filter(Boolean);
-  $("homeStickers").textContent = got.map((it) => it.image.replace(/^emoji:/, "")).join(" ");
+function confetti(x, y, n = 26) {
+  const fx = $("fx");
+  const colors = ["#ff6f61", "#ffd54f", "#4fc3f7", "#81c784", "#ba68c8", "#ff8a3d"];
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement("span");
+    p.className = "confetti-bit";
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 80 + Math.random() * 160;
+    p.style.left = `${x}px`;
+    p.style.top = `${y}px`;
+    p.style.background = colors[i % colors.length];
+    p.style.setProperty("--dx", `${Math.cos(ang) * dist}px`);
+    p.style.setProperty("--dy", `${Math.sin(ang) * dist - 60}px`);
+    p.style.setProperty("--rot", `${Math.random() * 720 - 360}deg`);
+    fx.appendChild(p);
+    setTimeout(() => p.remove(), 1100);
+  }
+}
+
+function centerOf(el) {
+  const r = el.getBoundingClientRect();
+  return [r.left + r.width / 2, r.top + r.height / 2];
+}
+
+// ---------------------------------------------------------------- 地圖
+function goMap() {
+  show("map");
+  const grid = $("unitGrid");
+  grid.innerHTML = "";
+  const rec = recommendedUnit(content.units);
+  for (const u of content.units) {
+    const stars = unitStars(u);
+    const tile = document.createElement("button");
+    tile.className = "unit" + (rec && rec.id === u.id ? " recommended" : "");
+    tile.style.setProperty("--unit-color", u.color || "#fff");
+    tile.setAttribute("aria-label", `${u.華語} ${u.英文}`);
+    tile.innerHTML = `<span class="unit-icon">${u.icon}</span><span class="unit-name">${u.華語}</span>` +
+      `<span class="unit-stars">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</span>`;
+    tile.addEventListener("click", () => startUnit(u, tile));
+    grid.appendChild(tile);
+  }
+  setMascot($("mapMascot"));
+  if (!mapGreeted) {
+    mapGreeted = true;
+    zhOrEn("點一個你喜歡的地方", "lets_play", "Let's play!");
+  }
+}
+
+async function startUnit(u, tile) {
+  unlock();
+  if (limitReached()) return goRest();
+  tile.classList.add("chosen");
+  preload(u.items.flatMap((it) => [it.id, it.id + "_s"]).concat(PRAISE, ["sticker", "again"]));
+  stopSpeech();
+  if (hasVoice("zh")) await say(u.華語, "zh");
+  await playEn("u_" + u.id, u.英文);
+  startRound(u);
 }
 
 // ---------------------------------------------------------------- 一回合
-function startRound() {
+function startRound(u) {
   if (limitReached()) return goRest();
-  round = { questions: buildRound(items), index: 0, wrongs: 0, firstTry: true, target: null, busy: false };
+  const questions = buildRound(u.items);
+  round = {
+    unit: u, questions, kinds: questions.map((it, i) => questionKind(it, i)),
+    index: 0, wrongs: 0, firstTry: true, target: null, busy: false,
+  };
   show("game");
+  setMascot($("gameMascot"));
+  document.body.style.setProperty("--unit-color", u.color || "#fff");
   nextQuestion(true);
 }
 
@@ -53,24 +127,30 @@ function renderDots() {
 async function nextQuestion(first = false) {
   if (round.index >= round.questions.length) return endRound();
   const target = round.questions[round.index];
+  const kind = round.kinds[round.index];
   round.target = target;
+  round.kind = kind;
   round.firstTry = true;
   round.busy = false;
   renderDots();
-  const opts = optionsFor(target, items);
+  const opts = optionsFor(target, round.unit.items);
   const box = $("options");
-  box.className = "options" + (opts.length >= 3 ? " three" : "");
+  box.className = "options" + (opts.length >= 3 ? " three" : "") + (kind === "balloon" ? " balloons" : "");
   box.innerHTML = "";
-  const words = showWordsNow();
-  for (const it of opts) {
+  opts.forEach((it, i) => {
     const card = document.createElement("button");
     card.className = "card";
     card.setAttribute("aria-label", it.英文);
+    if (kind === "balloon") {
+      card.style.setProperty("--balloon", BALLOON_COLORS[(i + round.index) % BALLOON_COLORS.length]);
+      card.style.setProperty("--float-delay", `${-i * 0.9}s`);
+      card.style.setProperty("--float-dur", `${2.6 + i * 0.4}s`);
+    }
     const pic = document.createElement("div");
     pic.className = "pic";
     renderPicture(it, pic);
     card.appendChild(pic);
-    if (words) {
+    if (showWordsNow()) {
       const w = document.createElement("div");
       w.className = "word";
       w.textContent = it.英文;
@@ -78,8 +158,8 @@ async function nextQuestion(first = false) {
     }
     card.addEventListener("click", () => onPick(card, it));
     box.appendChild(card);
-  }
-  if (first) await speak(() => say("聽聽看，哪一個是", "zh"));
+  });
+  if (first) await speak(() => zhOrEn("聽聽看，哪一個是", "lets_play", "Let's play!"));
   if (round && round.target === target) speakTarget();
 }
 
@@ -90,8 +170,10 @@ async function speak(fn) {
 
 function speakTarget() {
   if (!round || !round.target) return;
-  stopSpeech();
-  return speak(() => say(round.target.英文, "en"));
+  const t = round.target;
+  return round.kind === "sentence"
+    ? speak(() => playEn(t.id + "_s", t.sentence))
+    : speak(() => playEn(t.id, t.英文));
 }
 
 async function onPick(card, it) {
@@ -100,12 +182,19 @@ async function onPick(card, it) {
   if (it.id === target.id) {
     round.busy = true;
     stopSpeech();
-    card.classList.add("right");
+    card.classList.add(round.kind === "balloon" ? "popped" : "right");
+    const [x, y] = centerOf(card);
+    confetti(x, y);
+    if (round.kind === "balloon") chimePop();
     chimeRight();
+    hop($("gameMascot"));
+    setMascot($("gameMascot"), "cheer");
     recordAnswer(target, round.firstTry, round);
-    await say(PRAISE[Math.floor(Math.random() * PRAISE.length)], "en");
-    await wait(500);
+    const k = Math.floor(Math.random() * PRAISE.length);
+    await playEn(PRAISE[k], PRAISE_TEXT[k]);
+    await wait(350);
     if (!round || current !== "game") return;
+    setMascot($("gameMascot"));
     round.index += 1;
     nextQuestion();
   } else {
@@ -113,7 +202,7 @@ async function onPick(card, it) {
     card.classList.add("wrong");
     chimeSoft();
     stopSpeech();
-    await speak(() => say("再聽一次喔", "zh"));
+    await speak(() => zhOrEn("再聽一次喔", "again", "Let's listen again."));
     if (round && round.target === target && current === "game") speakTarget();
   }
 }
@@ -121,32 +210,50 @@ async function onPick(card, it) {
 async function endRound() {
   const r = round;
   round = null;
-  const { sticker, isNewSticker } = finishRound(r, items);
+  const { sticker, isNewSticker } = finishRound(r);
   show("reward");
+  setMascot($("rewardMascot"), "cheer");
   const box = $("rewardSticker");
   if (sticker) renderPicture(sticker, box); else box.textContent = "⭐";
   $("rewardWord").textContent = sticker && showWordsNow() ? sticker.英文 : "";
+  $("btnAgain").onclick = () => startRound(r.unit);
   chimeReward();
-  await wait(700);
+  setTimeout(() => { if (current === "reward") { const [x, y] = centerOf(box); confetti(x, y, 40); } }, 150);
+  await wait(800);
   if (current !== "reward") return;
-  await say(isNewSticker ? "You got a sticker!" : "Great job!", "en");
-  if (sticker && current === "reward") await say(sticker.英文, "en");
+  await playEn(isNewSticker ? "sticker" : "praise_1", isNewSticker ? "You got a sticker!" : "Great job!");
+  if (sticker && current === "reward") await playEn(sticker.id, sticker.英文);
 }
 
 // ---------------------------------------------------------------- 貼紙本
-function goBook() {
+function goBook(unitId) {
   show("book");
+  const got = new Set(store().stickers);
+  bookUnit = unitId || bookUnit || content.units[0].id;
+  const tabs = $("bookTabs");
+  tabs.innerHTML = "";
+  for (const u of content.units) {
+    const n = u.items.filter((it) => got.has(it.id)).length;
+    const t = document.createElement("button");
+    t.className = "tab" + (u.id === bookUnit ? " active" : "");
+    t.innerHTML = `${u.icon}${n ? `<span class="tab-n">${n}</span>` : ""}`;
+    t.setAttribute("aria-label", u.華語);
+    t.addEventListener("click", () => goBook(u.id));
+    tabs.appendChild(t);
+  }
+  const unit = content.units.find((u) => u.id === bookUnit);
+  const total = got.size;
+  $("bookCount").textContent = `${total} / ${content.items.length}`;
   const grid = $("bookGrid");
   grid.innerHTML = "";
-  const got = new Set(store().stickers);
-  for (const it of [...items].sort((a, b) => a.level - b.level)) {
+  for (const it of [...unit.items].sort((a, b) => a.level - b.level || a.order - b.order)) {
     const slot = document.createElement("button");
     const has = got.has(it.id);
     slot.className = "slot " + (has ? "got" : "locked");
     slot.setAttribute("aria-label", has ? it.英文 : "還沒拿到");
     renderPicture(it, slot);
     slot.addEventListener("click", () => {
-      if (has) { stopSpeech(); say(it.英文, "en"); } else chimeSoft();
+      if (has) { hop(slot); playEn(it.id, it.英文); } else chimeSoft();
     });
     grid.appendChild(slot);
   }
@@ -171,7 +278,7 @@ function goGate() {
   for (const v of [...choices].sort(() => Math.random() - 0.5)) {
     const btn = document.createElement("button");
     btn.textContent = v;
-    btn.addEventListener("click", () => (v === answer ? goParent() : goHome()));
+    btn.addEventListener("click", () => (v === answer ? goParent() : goMap()));
     $("gateAnswers").appendChild(btn);
   }
 }
@@ -189,23 +296,39 @@ function goParent() {
   const extra = store().extraMin[today()] || 0;
   $("todayPlay").textContent = `今天已玩 ${playedMinutesToday()} 分鐘` +
     (lim ? `（上限 ${lim} 分鐘${extra ? `，今天另加 ${extra} 分鐘` : ""}）` : "（不限時間）");
-  const warn = [];
-  if (!hasVoice("en")) warn.push("這台裝置找不到英文語音，圖卡下會改顯示英文字。");
-  if (!hasVoice("zh")) warn.push("這台裝置找不到華語語音，華語提示會沒有聲音。");
-  $("voiceWarn").hidden = !warn.length;
-  $("voiceWarn").textContent = warn.join(" ");
+  $("voiceWarn").hidden = hasVoice("zh");
+  $("voiceWarn").textContent = "這台裝置找不到華語語音，華語提示會改用英文。";
+  const sum = $("unitSummary");
+  sum.innerHTML = "";
+  for (const u of content.units) {
+    const learned = u.items.filter((it) => mastery(it).last).length;
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.textContent = `${u.icon} ${u.華語} ${learned}/${u.items.length}`;
+    sum.appendChild(chip);
+  }
+  const sel = $("progressUnit");
+  if (!sel.options.length) {
+    for (const u of content.units) sel.add(new Option(`${u.icon} ${u.華語}`, u.id));
+  }
   renderProgress();
 }
 
 function renderProgress() {
+  const unit = content.units.find((u) => u.id === $("progressUnit").value) || content.units[0];
   const t = $("progressTable");
-  t.innerHTML = "<thead><tr><th>動物</th><th>英文</th><th>華語</th><th>熟練度</th><th>答對</th><th>答錯</th><th>最後練習</th></tr></thead>";
+  t.innerHTML = "<thead><tr><th>圖</th><th>英文</th><th>華語</th><th>熟練度</th><th>答對</th><th>答錯</th><th>最後練習</th></tr></thead>";
   const body = document.createElement("tbody");
-  for (const it of [...items].sort((a, b) => a.level - b.level)) {
+  for (const it of [...unit.items].sort((a, b) => a.level - b.level || a.order - b.order)) {
     const m = mastery(it);
     const tr = body.insertRow();
-    tr.insertCell().textContent = it.image.replace(/^emoji:/, "");
-    tr.insertCell().textContent = it.英文;
+    tr.insertCell().textContent = pictureText(it);
+    const en = tr.insertCell();
+    const b = document.createElement("button");
+    b.className = "link-btn";
+    b.textContent = `🔈 ${it.英文}`;
+    b.addEventListener("click", () => { unlock(); playEn(it.id, it.英文); });
+    en.appendChild(b);
     tr.insertCell().textContent = it.華語;
     const stars = tr.insertCell();
     stars.className = m.last ? "stars" : "none";
@@ -223,6 +346,7 @@ function bindParent() {
     store().settings.slowSpeech = $("setSpeed").value === "slow"; save(); setSlow(store().settings.slowSpeech);
   });
   $("setWords").addEventListener("change", () => { store().settings.showWords = $("setWords").checked; save(); });
+  $("progressUnit").addEventListener("change", renderProgress);
   $("btnExtra").addEventListener("click", () => { addExtraMinutes(10); goParent(); msg("今天多了 10 分鐘。"); });
   $("btnExport").addEventListener("click", () => {
     const blob = new Blob([exportJson()], { type: "application/json" });
@@ -253,7 +377,7 @@ function bindParent() {
     goParent();
     msg("已全部重設。");
   });
-  $("btnParentBack").addEventListener("click", goHome);
+  $("btnParentBack").addEventListener("click", goMap);
 }
 
 function msg(text) { $("parentMsg").textContent = text; }
@@ -269,10 +393,12 @@ setInterval(() => {
 // ---------------------------------------------------------------- 更新（service worker）
 function registerSw() {
   if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
+  // 只有按了「更新」才重新整理；第一次安裝時 service worker 接管頁面也會觸發 controllerchange，不能因此重整
+  let updating = false;
   navigator.serviceWorker.register("./sw.js").then((reg) => {
     const offer = (worker) => {
       $("btnUpdate").hidden = false;
-      $("btnUpdate").onclick = () => worker.postMessage("skipWaiting");
+      $("btnUpdate").onclick = () => { updating = true; worker.postMessage("skipWaiting"); };
     };
     if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
     reg.addEventListener("updatefound", () => {
@@ -283,43 +409,40 @@ function registerSw() {
     });
     setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
   }).catch(() => { /* 沒有離線功能也能玩 */ });
-  let reloaded = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloaded) return;
-    reloaded = true;
+    if (!updating) return;
+    updating = false;
     location.reload();
   });
 }
 
 // ---------------------------------------------------------------- 啟動
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-
 async function init() {
   setSlow(store().settings.slowSpeech);
+  setMascot($("startMascot"));
   try {
-    items = await loadItems(THEME);
-    if (!items.length) throw new Error("內容是空的");
+    content = await loadContent();
+    if (!content.units.length) throw new Error("內容是空的");
   } catch (e) {
     $("loadError").hidden = false;
     $("loadError").textContent = `載入失敗：${e.message}。請檢查網路後重新整理。`;
     $("btnStart").disabled = true;
     return;
   }
+  preload(["lets_play", "again", ...PRAISE]);
   $("btnStart").addEventListener("click", () => {
     unlock();
-    say("我們去動物園吧", "zh");    // 第一次出聲要在點擊裡，iPad 才會解鎖語音
-    goHome();
+    hop($("startMascot"));
+    goMap();
   });
-  $("btnPlay").addEventListener("click", () => { unlock(); startRound(); });
-  $("btnBook").addEventListener("click", goBook);
-  $("btnBookBack").addEventListener("click", goHome);
-  $("btnQuit").addEventListener("click", () => { round = null; goHome(); });
-  $("btnReplay").addEventListener("click", () => speakTarget());
-  $("btnAgain").addEventListener("click", startRound);
-  $("btnRewardHome").addEventListener("click", goHome);
-  $("btnRestHome").addEventListener("click", goHome);
+  $("btnBook").addEventListener("click", () => goBook());
+  $("btnBookBack").addEventListener("click", goMap);
+  $("btnQuit").addEventListener("click", () => { round = null; goMap(); });
+  $("btnReplay").addEventListener("click", () => { stopSpeech(); speakTarget(); });
+  $("btnRewardHome").addEventListener("click", goMap);
+  $("btnRestHome").addEventListener("click", goMap);
   $("btnParent").addEventListener("click", goGate);
-  $("btnGateCancel").addEventListener("click", goHome);
+  $("btnGateCancel").addEventListener("click", goMap);
   bindParent();
   // 長按圖片、雙指縮放
   document.addEventListener("contextmenu", (e) => { if (current !== "parent") e.preventDefault(); });

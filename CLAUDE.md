@@ -7,6 +7,7 @@
 - HTML + CSS + 原生 JavaScript（ES modules），不用框架。
 - PWA：`site/manifest.webmanifest` + `site/sw.js`，可加到主畫面、斷網可玩。
 - 內容放 `site/content/*.csv`，程式不寫死任何單字。
+- 英文語音是預先產生的音檔 `site/audio/en/`：改了 items.csv / units.csv 後要執行 `.tts\venv\Scripts\python tools\make_audio.py`（只產生缺少或文字改過的檔；`.tts/` 的安裝方式寫在該檔開頭，不進 git）。
 - 版本號只寫在 `site/js/version.js`（網頁和 service worker 都讀它）。每次發布要加一，否則 iPad 上會一直用舊的快取。
 
 ## 部署

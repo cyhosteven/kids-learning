@@ -10,18 +10,40 @@ const FILES = [
   "./js/app.js",
   "./js/content.js",
   "./js/engine.js",
+  "./js/mascot.js",
   "./js/speech.js",
   "./js/storage.js",
   "./content/items.csv",
+  "./content/units.csv",
+  "./audio/index.json",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",
 ];
 
+async function audioFiles() {
+  // 音檔清單由 tools/make_audio.py 產生；全部預先快取，斷網也有聲音（約 2 MB）
+  try {
+    const res = await fetch("./audio/index.json", { cache: "no-store" });
+    const { texts } = await res.json();
+    return Object.keys(texts).map((name) => `./audio/en/${name}.mp3`);
+  } catch (e) {
+    return [];
+  }
+}
+
 self.addEventListener("install", (event) => {
   // 不自動 skipWaiting：讓頁面顯示「有新版本」，使用者點了才換（避免玩到一半換版）
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    await cache.addAll(FILES);
+    const audio = await audioFiles();
+    // 音檔分批加，個別失敗不影響安裝（播放時會退回瀏覽器語音）
+    for (let i = 0; i < audio.length; i += 40) {
+      await Promise.all(audio.slice(i, i + 40).map((u) => cache.add(u).catch(() => {})));
+    }
+  })());
 });
 
 self.addEventListener("activate", (event) => {

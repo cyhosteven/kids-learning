@@ -25,7 +25,7 @@ function shuffle(a) {
 
 const isNew = (it) => { const s = itemState(it.id); return s.box === 0 && !s.last; };
 
-/** 一回合的題目（item 陣列，可重複，同一個不連續出現）。 */
+/** 一回合的題目（item 陣列，可重複，同一個不連續出現）。items＝同一個單元的字。 */
 export function buildRound(items) {
   const st = (it) => itemState(it.id);
   const learned = items.filter((it) => !isNew(it));
@@ -93,7 +93,7 @@ export function recordAnswer(item, firstTry, round) {
 }
 
 /** 回合結束：調整選項數、決定貼紙。回傳 { sticker: item|null, isNewSticker }。 */
-export function finishRound(round, items) {
+export function finishRound(round) {
   const data = store();
   if (data.choices === 3 && round.wrongs >= LEVEL_DOWN_WRONGS) { data.choices = 2; data.streak = 0; }
   const practiced = [...new Map(round.questions.map((it) => [it.id, it])).values()];
@@ -109,4 +109,24 @@ export function finishRound(round, items) {
 
 export function mastery(item) {
   return itemState(item.id);
+}
+
+/** 單元星星 0～3：學過 ≥1/3、學過 ≥2/3、全部熟練度 ≥3。 */
+export function unitStars(unit) {
+  const n = unit.items.length;
+  const learned = unit.items.filter((it) => !isNew(it)).length;
+  const solid = unit.items.every((it) => itemState(it.id).box >= 3);
+  return (learned >= n / 3 ? 1 : 0) + (learned >= (2 * n) / 3 ? 1 : 0) + (solid ? 1 : 0);
+}
+
+/** 建議的下一個單元：依順序第一個還沒 2 顆星的。 */
+export function recommendedUnit(units) {
+  return units.find((u) => unitStars(u) < 2) || null;
+}
+
+/** 這題用哪種題型：氣球（第 3、6 題）、句子（熟練度 ≥2 的字，一半機率）、單字。 */
+export function questionKind(item, index) {
+  if (index === 2 || index === 5) return "balloon";
+  if (item.sentence && itemState(item.id).box >= 2 && Math.random() < 0.5) return "sentence";
+  return "word";
 }

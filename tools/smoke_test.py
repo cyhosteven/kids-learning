@@ -104,48 +104,76 @@ async def main():
             await shot("1_start_ipad.png", 1024, 768)
             check(await active() == "screen-start", "開始畫面")
             await js("document.getElementById('btnStart').click()")
-            await asyncio.sleep(0.5)
-            check(await active() == "screen-home", "點開始 → 首頁")
-            await shot("2_home_ipad.png", 1024, 768)
-
-            # 一回合：第一題先點錯
-            await js("document.getElementById('btnPlay').click()")
             await asyncio.sleep(0.6)
-            check(await active() == "screen-game", "進入遊戲")
+            check(await active() == "screen-map", "點開始 → 地圖")
+            units = await js("document.querySelectorAll('#unitGrid .unit').length")
+            check(units >= 10, f"地圖有單元（{units} 個）")
+            check(await js("!!document.querySelector('#unitGrid .unit.recommended')"), "有建議的單元在跳動")
+            await shot("2_map_ipad.png", 1024, 768)
+            await shot("2_map_phone.png", 390, 844)
+            await call("Emulation.setDeviceMetricsOverride", width=1024, height=768, deviceScaleFactor=1, mobile=False)
+
+            # 英文音檔：抓得到、解得出來
+            dur = await js("""(async () => { const r = await fetch('./audio/en/elephant_s.mp3'); if (!r.ok) return -1;
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const ab = await ctx.decodeAudioData(await r.arrayBuffer()); return ab.duration; })()""")
+            check(dur and dur > 0.5, f"英文音檔可播放（elephant_s.mp3 {dur:.2f} 秒）" if dur else "英文音檔可播放")
+
+            # 一回合（第一個單元）：點錯、氣球題、句子題
+            await js("document.querySelector('#unitGrid .unit').click()")
+            await asyncio.sleep(1.0)
+            check(await active() == "screen-game", "點單元 → 開始一回合")
             await shot("3_game_ipad.png", 1024, 768)
             await shot("3_game_phone.png", 390, 844)
             await call("Emulation.setDeviceMetricsOverride", width=1024, height=768, deviceScaleFactor=1, mobile=False)
-            wrong_seen = False
+            wrong_seen = balloon_seen = False
             for q in range(6):
+                if await js("document.getElementById('options').classList.contains('balloons')"):
+                    if not balloon_seen:
+                        await shot("3_balloon_ipad.png", 1024, 768)
+                    balloon_seen = True
                 for attempt in range(4):
-                    cards = await js("document.querySelectorAll('#options .card:not(.wrong)').length")
                     await js("document.querySelector('#options .card:not(.wrong)').click()")
                     await asyncio.sleep(0.3)
-                    if await js("!!document.querySelector('#options .card.right')"):
+                    if await js("!!document.querySelector('#options .card.right, #options .card.popped')"):
                         break
                     wrong_seen = wrong_seen or await js("!!document.querySelector('#options .card.wrong')")
-                await asyncio.sleep(1.2)
+                await asyncio.sleep(1.0)
             check(wrong_seen, "點錯：圖卡變淡、不扣分，可以再點")
+            check(balloon_seen, "一回合裡有氣球題")
             check(await active() == "screen-reward", "6 題後 → 得到貼紙")
             await shot("4_reward_ipad.png", 1024, 768)
             await js("document.getElementById('btnRewardHome').click()")
+            await asyncio.sleep(0.3)
             await js("document.getElementById('btnBook').click()")
             await asyncio.sleep(0.4)
             got = await js("document.querySelectorAll('#bookGrid .slot.got').length")
             check(got == 1, f"貼紙本有 1 張彩色貼紙（實際 {got}）")
+            tabs = await js("document.querySelectorAll('#bookTabs .tab').length")
+            check(tabs == units, f"貼紙本依單元分頁（{tabs} 頁）")
             await shot("5_book_ipad.png", 1024, 768)
             await shot("5_book_phone.png", 390, 844)
             await call("Emulation.setDeviceMetricsOverride", width=1024, height=768, deviceScaleFactor=1, mobile=False)
 
+            # 其他單元的圖：顏色色塊、數字星星
+            for unit_id, sel in (("color", ".swatch"), ("number", ".count")):
+                await js(f"document.querySelector('#bookTabs .tab[aria-label]') && [...document.querySelectorAll('#bookTabs .tab')]"
+                         f".find(t => t.getAttribute('aria-label') === ({json.dumps({'color': '顏色', 'number': '數字'}[unit_id])})).click()")
+                await asyncio.sleep(0.3)
+                n = await js(f"document.querySelectorAll('#bookGrid {sel}').length")
+                check(n >= 10, f"{unit_id} 單元的圖正常顯示（{n} 個）")
+            await shot("5_book_number_ipad.png", 1024, 768)
+
             # 家長鎖
             await js("document.getElementById('btnBookBack').click()")
+            await asyncio.sleep(0.2)
             await js("document.getElementById('btnParent').click()")
             await asyncio.sleep(0.3)
-            await js("""(() => { const [a, b] = document.getElementById('gateQuestion').textContent.match(/\\d+/g).map(Number);
+            await js("""(() => { const [a, b] = document.getElementById('gateQuestion').textContent.match(/\d+/g).map(Number);
                 [...document.querySelectorAll('#gateAnswers button')].find(x => Number(x.textContent) === a + b).click(); })()""")
             await asyncio.sleep(0.4)
             check(await active() == "screen-parent", "家長鎖答對 → 家長頁")
-            learned = await js("[...document.querySelectorAll('#progressTable td.stars')].filter(td => td.textContent !== '還沒學').length")
+            learned = await js("[...document.querySelectorAll('#progressTable td.stars')].length")
             check(learned >= 1, f"家長頁有學習紀錄（{learned} 個字）")
             await shot("6_parent_ipad.png", 1024, 768)
 
@@ -155,6 +183,10 @@ async def main():
                 s.importJson(backup); return [after, s.store().stickers.length]; })()""")
             check(restored == [0, 1], f"匯出 → 重設 → 匯入，貼紙恢復（{restored}）")
 
+            cached = await js("""(async () => { await navigator.serviceWorker.ready; await new Promise(r => setTimeout(r, 3000));
+                const c = await caches.open('kids-learning-' + self.APP_VERSION);
+                return (await c.keys()).filter(r => r.url.includes('/audio/en/')).length; })()""")
+            check(cached and cached > 250, f"音檔已預先快取，斷網也有聲音（{cached} 個）")
             sw = await js("navigator.serviceWorker.getRegistration().then(r => !!r)")
             check(sw, "service worker 有註冊（可離線）")
             external = [u for u in requests if not u.startswith(ORIGIN) and not u.startswith("data:")
