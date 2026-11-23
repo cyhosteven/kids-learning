@@ -238,11 +238,11 @@ def fluent():
         canvas.alpha_composite(art, ((OUT_SIZE - art.width) // 2, (OUT_SIZE - art.height) // 2))
         canvas.convert("RGB").save(os.path.join(out_dir, f"{iid}.webp"), "WEBP", quality=85, method=6)
         credits[iid] = {
-            "title": path.split("/")[0], "creator": "Microsoft（Fluent Emoji）",
+            "title": path.split("/")[0], "creator": "Microsoft (Fluent Emoji)",
             "creator_url": "https://github.com/microsoft/fluentui-emoji", "license": "mit", "license_version": "",
             "license_url": "https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE",
             "source_url": "https://github.com/microsoft/fluentui-emoji", "source": "github",
-            "modified": "放到淺色底並縮小",
+            "modified": "placed on a light background and resized",
         }
         print(iid)
     save_credits_and_csv(credits, set(FLUENT))
@@ -267,11 +267,11 @@ def build():
             img.save(path, "WEBP", quality=80, method=6)
             print(f"{iid}: {os.path.getsize(path) // 1024} KB")
         credits[iid] = {
-            "title": c.get("title") or "", "creator": c.get("creator") or "（未署名）",
+            "title": c.get("title") or "", "creator": c.get("creator") or "unknown",
             "creator_url": c.get("creator_url") or "", "license": c.get("license"),
             "license_version": c.get("license_version") or "", "license_url": c.get("license_url") or "",
             "source_url": c.get("foreign_landing_url") or c.get("url"), "source": c.get("source") or "",
-            "modified": "裁切為正方形並縮小",
+            "modified": "cropped to a square and resized",
         }
     save_credits_and_csv(credits, set(picks))
     total = sum(os.path.getsize(os.path.join(out_dir, f)) for f in os.listdir(out_dir))

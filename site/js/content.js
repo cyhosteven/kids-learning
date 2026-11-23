@@ -26,7 +26,7 @@ export function parseCsv(text) {
 
 async function csv(name) {
   const res = await fetch(`./content/${name}`);
-  if (!res.ok) throw new Error(`讀不到 ${name}（${res.status}）`);
+  if (!res.ok) throw new Error(`cannot read ${name} (${res.status})`);
   return parseCsv((await res.text()).replace(/^﻿/, ""));
 }
 

@@ -85,7 +85,7 @@ export function exportJson() {
 
 export function importJson(text) {
   const parsed = JSON.parse(text);
-  if (!parsed || parsed.app !== "kids-learning" || !parsed.data) throw new Error("這不是本遊戲匯出的進度檔");
+  if (!parsed || parsed.app !== "kids-learning" || !parsed.data) throw new Error("this is not a progress file from this game");
   state = normalize(parsed.data);
   save();
 }

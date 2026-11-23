@@ -162,7 +162,7 @@ async def main():
             # 其他單元的圖：顏色色塊、數字星星
             for unit_id, sel in (("color", ".swatch"), ("number", ".count")):
                 await js(f"document.querySelector('#bookTabs .tab[aria-label]') && [...document.querySelectorAll('#bookTabs .tab')]"
-                         f".find(t => t.getAttribute('aria-label') === ({json.dumps({'color': '顏色', 'number': '數字'}[unit_id])})).click()")
+                         f".find(t => t.getAttribute('aria-label') === ({json.dumps({'color': 'Colors', 'number': 'Numbers'}[unit_id])})).click()")
                 await asyncio.sleep(0.3)
                 n = await js(f"document.querySelectorAll('#bookGrid {sel}').length")
                 check(n >= 10, f"{unit_id} 單元的圖正常顯示（{n} 個）")

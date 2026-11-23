@@ -1,8 +1,8 @@
 {
-  "name": "獅寶學英文",
-  "short_name": "獅寶學英文",
-  "description": "給 4～5 歲小孩的英文單字遊戲：聽英文，點出正確的圖。13 個單元、約 140 個字。",
-  "lang": "zh-Hant",
+  "name": "Leo's English",
+  "short_name": "Leo's English",
+  "description": "An English word game for 4–5 year olds: listen, and touch the right picture. 13 topics, about 140 words.",
+  "lang": "en",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
@@ -10,7 +10,17 @@
   "background_color": "#bfe6ff",
   "theme_color": "#7cc96b",
   "icons": [
-    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }

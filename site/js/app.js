@@ -76,8 +76,8 @@ function goMap() {
     const tile = document.createElement("button");
     tile.className = "unit" + (rec && rec.id === u.id ? " recommended" : "");
     tile.style.setProperty("--unit-color", u.color || "#fff");
-    tile.setAttribute("aria-label", `${u.華語} ${u.英文}`);
-    tile.innerHTML = `<span class="unit-icon">${u.icon}</span><span class="unit-name">${u.華語}</span>` +
+    tile.setAttribute("aria-label", u.英文);
+    tile.innerHTML = `<span class="unit-icon">${u.icon}</span><span class="unit-name">${u.英文}</span>` +
       `<span class="unit-stars">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</span>`;
     // 有照片的單元：用第一個字的照片當圖示（顏色、數字單元沒有照片，保留 emoji）
     const cover = u.items.find((it) => it.image.startsWith("img:"));
@@ -248,7 +248,7 @@ function goBook(unitId) {
     const t = document.createElement("button");
     t.className = "tab" + (u.id === bookUnit ? " active" : "");
     t.innerHTML = `${u.icon}${n ? `<span class="tab-n">${n}</span>` : ""}`;
-    t.setAttribute("aria-label", u.華語);
+    t.setAttribute("aria-label", u.英文);
     t.addEventListener("click", () => goBook(u.id));
     tabs.appendChild(t);
   }
@@ -261,7 +261,7 @@ function goBook(unitId) {
     const slot = document.createElement("button");
     const has = got.has(it.id);
     slot.className = "slot " + (has ? "got" : "locked");
-    slot.setAttribute("aria-label", has ? it.英文 : "還沒拿到");
+    slot.setAttribute("aria-label", has ? it.英文 : "Not yet");
     renderPicture(it, slot);
     slot.addEventListener("click", () => {
       if (has) { hop(slot); playEn(it.id, it.英文); } else chimeSoft();
@@ -305,31 +305,31 @@ function goParent() {
   $("curChoices").textContent = store().choices;
   const lim = s.dailyLimitMin;
   const extra = store().extraMin[today()] || 0;
-  $("todayPlay").textContent = `今天已玩 ${playedMinutesToday()} 分鐘` +
-    (lim ? `（上限 ${lim} 分鐘${extra ? `，今天另加 ${extra} 分鐘` : ""}）` : "（不限時間）");
+  $("todayPlay").textContent = `Played today: ${playedMinutesToday()} min` +
+    (lim ? ` (limit ${lim} min${extra ? `, +${extra} min today` : ""})` : " (no limit)");
   const sum = $("unitSummary");
   sum.innerHTML = "";
   for (const u of content.units) {
     const learned = u.items.filter((it) => mastery(it).last).length;
     const chip = document.createElement("span");
     chip.className = "chip";
-    chip.textContent = `${u.icon} ${u.華語} ${learned}/${u.items.length}`;
+    chip.textContent = `${u.icon} ${u.英文} ${learned}/${u.items.length}`;
     sum.appendChild(chip);
   }
   const sel = $("progressUnit");
   if (!sel.options.length) {
-    for (const u of content.units) sel.add(new Option(`${u.icon} ${u.華語}`, u.id));
+    for (const u of content.units) sel.add(new Option(`${u.icon} ${u.英文}`, u.id));
   }
   renderProgress();
 }
 
-const LICENSE_NAME = { cc0: "CC0", pdm: "公有領域", by: "CC BY", "by-sa": "CC BY-SA", mit: "MIT" };
+const LICENSE_NAME = { cc0: "CC0", pdm: "Public Domain", by: "CC BY", "by-sa": "CC BY-SA", mit: "MIT" };
 
 async function toggleCredits() {
   const box = $("creditsList");
   if (!box.hidden) { box.hidden = true; return; }
   box.hidden = false;
-  box.textContent = "讀取中…";
+  box.textContent = "Loading…";
   try {
     const credits = await (await fetch("./content/credits.json")).json();
     box.textContent = "";
@@ -338,32 +338,32 @@ async function toggleCredits() {
       if (!c) continue;
       const row = document.createElement("div");
       const lic = `${LICENSE_NAME[c.license] || c.license}${c.license_version && c.license !== "pdm" && c.license !== "cc0" ? " " + c.license_version : ""}`;
-      row.append(`${it.英文}（${it.華語}）：「${c.title || "無標題"}」 作者 ${c.creator}，${lic}，${c.modified}　`);
+      row.append(`${it.英文}: “${c.title || "Untitled"}” by ${c.creator}, ${lic}, ${c.modified}  `);
       const a = document.createElement("a");
       a.href = c.source_url;
       a.target = "_blank";
       a.rel = "noopener noreferrer";
-      a.textContent = "原始來源";
+      a.textContent = "Source";
       row.appendChild(a);
       if (c.license_url) {
         const l = document.createElement("a");
         l.href = c.license_url;
         l.target = "_blank";
         l.rel = "noopener noreferrer";
-        l.textContent = "授權條款";
-        row.append("　", l);
+        l.textContent = "License";
+        row.append(" · ", l);
       }
       box.appendChild(row);
     }
   } catch (e) {
-    box.textContent = `讀不到來源清單：${e.message}`;
+    box.textContent = `Could not load the list: ${e.message}`;
   }
 }
 
 function renderProgress() {
   const unit = content.units.find((u) => u.id === $("progressUnit").value) || content.units[0];
   const t = $("progressTable");
-  t.innerHTML = "<thead><tr><th>圖</th><th>英文</th><th>華語</th><th>熟練度</th><th>答對</th><th>答錯</th><th>最後練習</th></tr></thead>";
+  t.innerHTML = "<thead><tr><th>Picture</th><th>Word</th><th>Stars</th><th>Right</th><th>Wrong</th><th>Last played</th></tr></thead>";
   const body = document.createElement("tbody");
   for (const it of [...unit.items].sort((a, b) => a.level - b.level || a.order - b.order)) {
     const m = mastery(it);
@@ -377,10 +377,9 @@ function renderProgress() {
     b.textContent = `🔈 ${it.英文}`;
     b.addEventListener("click", () => { unlock(); playEn(it.id, it.英文); });
     en.appendChild(b);
-    tr.insertCell().textContent = it.華語;
     const stars = tr.insertCell();
     stars.className = m.last ? "stars" : "none";
-    stars.textContent = m.last ? "★".repeat(m.box) + "☆".repeat(5 - m.box) : "還沒學";
+    stars.textContent = m.last ? "★".repeat(m.box) + "☆".repeat(5 - m.box) : "Not yet";
     tr.insertCell().textContent = m.right;
     tr.insertCell().textContent = m.wrong;
     tr.insertCell().textContent = m.last || "—";
@@ -396,16 +395,16 @@ function bindParent() {
   $("setWords").addEventListener("change", () => { store().settings.showWords = $("setWords").checked; save(); });
   $("progressUnit").addEventListener("change", renderProgress);
   $("btnCredits").addEventListener("click", toggleCredits);
-  $("btnExtra").addEventListener("click", () => { addExtraMinutes(10); goParent(); msg("今天多了 10 分鐘。"); });
+  $("btnExtra").addEventListener("click", () => { addExtraMinutes(10); goParent(); msg("Added 10 minutes for today."); });
   $("btnExport").addEventListener("click", () => {
     const blob = new Blob([exportJson()], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `kids-learning-進度-${today()}.json`;
+    a.download = `leos-english-progress-${today()}.json`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-    msg("已匯出。請把檔案存在安全的地方。");
+    msg("Exported. Keep the file somewhere safe.");
   });
   $("fileImport").addEventListener("change", async () => {
     const f = $("fileImport").files[0];
@@ -414,17 +413,17 @@ function bindParent() {
       importJson(await f.text());
       setSlow(store().settings.slowSpeech);
       goParent();
-      msg("已匯入進度。");
+      msg("Progress imported.");
     } catch (e) {
-      msg(`匯入失敗：${e.message}`);
+      msg(`Import failed: ${e.message}`);
     }
     $("fileImport").value = "";
   });
   $("btnReset").addEventListener("click", () => {
-    if (!confirm("確定要清除所有進度和貼紙嗎？（設定會保留）")) return;
+    if (!confirm("Clear all progress and stickers? (Settings are kept.)")) return;
     resetAll();
     goParent();
-    msg("已全部重設。");
+    msg("Everything was reset.");
   });
   $("btnParentBack").addEventListener("click", goMap);
 }
@@ -471,10 +470,10 @@ async function init() {
   setMascot($("startMascot"));
   try {
     content = await loadContent();
-    if (!content.units.length) throw new Error("內容是空的");
+    if (!content.units.length) throw new Error("no content");
   } catch (e) {
     $("loadError").hidden = false;
-    $("loadError").textContent = `載入失敗：${e.message}。請檢查網路後重新整理。`;
+    $("loadError").textContent = `Could not load (${e.message}). Check the internet connection and reload.`;
     $("btnStart").disabled = true;
     return;
   }

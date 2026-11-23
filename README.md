@@ -1,4 +1,4 @@
-# 獅寶學英文（kids-learning）
+# Leo's English（kids-learning）
 
 給 4～5 歲小孩玩的英文單字網頁遊戲：聽英文，點出正確的圖。13 個單元、約 140 個字。
 

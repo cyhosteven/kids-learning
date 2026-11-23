@@ -14,7 +14,7 @@
   --warn: #b3541e;
   --gold: #ffd23f;
   --radius: 28px;
-  font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, system-ui, sans-serif;
   color: var(--ink);
 }
 
