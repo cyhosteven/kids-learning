@@ -1,6 +1,8 @@
 """冒煙測試：本機 Chrome 無頭模式跑主要流程，截圖到 tools/out/。
 
-用法：python tools/smoke_test.py      （需要 pip install websockets、本機安裝 Google Chrome）
+用法：python tools/smoke_test.py            測本機（自動啟動 tools/serve.py）
+      python tools/smoke_test.py <網址>     測正式網站，例如 https://cyhosteven.github.io/kids-learning/
+（需要 pip install websockets、本機安裝 Google Chrome）
 走子路徑 /kids-learning/（和 GitHub Pages 一樣），檢查：
 - 沒有 JS 錯誤、沒有對外部網站的請求、service worker 有註冊
 - 一回合 6 題（先故意點錯一次）→ 得到貼紙 → 貼紙本有 1 張
@@ -30,7 +32,9 @@ CHROME_CANDIDATES = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "google-chrome",
 ]
-URL = f"http://localhost:{PORT}/kids-learning/?mute"
+BASE = sys.argv[1].rstrip("/") + "/" if len(sys.argv) > 1 else f"http://localhost:{PORT}/kids-learning/"
+URL = BASE + "?mute"
+ORIGIN = "/".join(BASE.split("/")[:3]) + "/"
 failures = []
 
 
@@ -45,8 +49,8 @@ async def main():
     chrome = next((c for c in CHROME_CANDIDATES if os.path.exists(c) or shutil.which(c)), None)
     if not chrome:
         sys.exit("找不到 Chrome")
-    server = subprocess.Popen([sys.executable, os.path.join(ROOT, "tools", "serve.py"), str(PORT)],
-                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    server = None if len(sys.argv) > 1 else subprocess.Popen(
+        [sys.executable, os.path.join(ROOT, "tools", "serve.py"), str(PORT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     profile = tempfile.mkdtemp()
     proc = subprocess.Popen([chrome, "--headless=new", f"--remote-debugging-port={CDP}", f"--user-data-dir={profile}",
                              "--window-size=1024,768", "--autoplay-policy=no-user-gesture-required", "about:blank"])
@@ -54,7 +58,7 @@ async def main():
         for _ in range(60):
             try:
                 page = next(t for t in json.load(urllib.request.urlopen(f"http://127.0.0.1:{CDP}/json")) if t["type"] == "page")
-                urllib.request.urlopen(f"http://localhost:{PORT}/kids-learning/")
+                urllib.request.urlopen(BASE)
                 break
             except Exception:
                 time.sleep(0.25)
@@ -153,13 +157,14 @@ async def main():
 
             sw = await js("navigator.serviceWorker.getRegistration().then(r => !!r)")
             check(sw, "service worker 有註冊（可離線）")
-            external = [u for u in requests if not u.startswith(f"http://localhost:{PORT}/") and not u.startswith("data:")
+            external = [u for u in requests if not u.startswith(ORIGIN) and not u.startswith("data:")
                         and not u.startswith("blob:")]
             check(not external, f"沒有對外部網站的請求{'：' + ', '.join(external[:5]) if external else ''}")
             check(not errors, f"沒有 JS 錯誤{'：' + '; '.join(errors[:3]) if errors else ''}")
     finally:
         proc.kill()
-        server.kill()
+        if server:
+            server.kill()
     print(f"\n截圖：{OUT}")
     if failures:
         sys.exit(f"{len(failures)} 項失敗")

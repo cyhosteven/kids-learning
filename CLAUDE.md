@@ -25,6 +25,7 @@
 ## 測試
 - 本機：`python tools/serve.py` 後開 http://localhost:8080/
 - 冒煙測試：`python tools/smoke_test.py`（用本機 Chrome 無頭模式跑主要流程並截圖到 `tools/out/`；需要 `pip install websockets`）。
+- 發布後再測正式網站：`python tools/smoke_test.py https://cyhosteven.github.io/kids-learning/`
 - 改完要用 iPad 尺寸（1024×768）和手機尺寸（390×844）截圖確認。
 
 ## 寫法
